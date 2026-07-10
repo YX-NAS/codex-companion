@@ -30,7 +30,7 @@ public final class AppServerClient: @unchecked Sendable {
         let initialize: [String: Any] = [
             "id": 1,
             "method": "initialize",
-            "params": ["clientInfo": ["name": "CodexCompanion", "version": "0.1.3"], "capabilities": [:]],
+            "params": ["clientInfo": ["name": "CodexCompanion", "version": "0.1.4"], "capabilities": [:]],
         ]
         try write(initialize, to: input)
         _ = try readResponse(id: 1, from: output, error: error)

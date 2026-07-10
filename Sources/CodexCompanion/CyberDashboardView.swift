@@ -50,11 +50,12 @@ final class CyberDashboardView: NSView {
     }
 
     private func drawHeader(in bounds: NSRect) {
-        text("CODEX // COMPANION", at: NSPoint(x: 32, y: 25), font: .systemFont(ofSize: 22, weight: .bold), color: .white)
+        let compact = bounds.width < 500
+        text("CODEX // COMPANION", at: NSPoint(x: 22, y: 25), font: .systemFont(ofSize: compact ? 18 : 22, weight: .bold), color: .white)
         text("NEON QUOTA CONTROL", at: NSPoint(x: 34, y: 54), font: .monospacedSystemFont(ofSize: 10, weight: .medium), color: .cyan)
-        let liveRect = NSRect(x: bounds.width - 126, y: 28, width: 92, height: 26)
+        let liveRect = NSRect(x: bounds.width - (compact ? 98 : 126), y: 28, width: compact ? 76 : 92, height: 26)
         rounded(liveRect, radius: 13, fill: NSColor.cyan.withAlphaComponent(0.13), stroke: .cyan.withAlphaComponent(0.9), lineWidth: 1)
-        text("●  LIVE", at: NSPoint(x: liveRect.minX + 15, y: liveRect.minY + 7), font: .monospacedSystemFont(ofSize: 10, weight: .bold), color: .cyan)
+        text(compact ? "● LIVE" : "●  LIVE", at: NSPoint(x: liveRect.minX + (compact ? 10 : 15), y: liveRect.minY + 7), font: .monospacedSystemFont(ofSize: 10, weight: .bold), color: .cyan)
         NSColor.cyan.withAlphaComponent(0.65).setStroke()
         let line = NSBezierPath()
         line.move(to: NSPoint(x: 32, y: 82))
@@ -64,12 +65,12 @@ final class CyberDashboardView: NSView {
     }
 
     private func drawCards(in bounds: NSRect) {
-        let visibleCards = Array(cards.prefix(2))
+        let visibleCards = Array(cards.prefix(1))
         let count = max(visibleCards.count, 1)
         let gap: CGFloat = 18
         let totalWidth = bounds.width - 64
         let width = count == 1 ? totalWidth : (totalWidth - gap) / 2
-        let cardHeight: CGFloat = 292
+        let cardHeight: CGFloat = bounds.width < 500 ? 210 : 292
         for (index, card) in visibleCards.enumerated() {
             let x = 32 + CGFloat(index) * (width + gap)
             draw(card: card, in: NSRect(x: x, y: 105, width: width, height: cardHeight))
@@ -77,6 +78,10 @@ final class CyberDashboardView: NSView {
     }
 
     private func draw(card: CyberDashboardCard, in rect: NSRect) {
+        if rect.width < 400 {
+            drawCompactCard(card: card, in: rect)
+            return
+        }
         let accent = card.isRecommended ? NSColor.cyan : NSColor.magenta
         rounded(rect, radius: 18, fill: NSColor.black.withAlphaComponent(0.28), stroke: accent.withAlphaComponent(0.75), lineWidth: card.isRecommended ? 1.8 : 1)
         let topGlow = NSRect(x: rect.minX + 1, y: rect.minY + 1, width: rect.width - 2, height: 4)
@@ -91,6 +96,36 @@ final class CyberDashboardView: NSView {
         drawMetric(label: card.shortLabel, remaining: card.shortRemaining, reset: card.shortReset, at: NSPoint(x: rect.minX + 22, y: rect.minY + 95), width: rect.width - 44, accent: accent)
         drawMetric(label: card.longLabel, remaining: card.longRemaining, reset: card.longReset, at: NSPoint(x: rect.minX + 22, y: rect.minY + 177), width: rect.width - 44, accent: .magenta)
         text(card.syncText, at: NSPoint(x: rect.minX + 22, y: rect.maxY - 28), font: .monospacedSystemFont(ofSize: 9, weight: .regular), color: NSColor.white.withAlphaComponent(0.42))
+    }
+
+    private func drawCompactCard(card: CyberDashboardCard, in rect: NSRect) {
+        let accent = card.isRecommended ? NSColor.cyan : NSColor.magenta
+        rounded(rect, radius: 16, fill: NSColor.black.withAlphaComponent(0.28), stroke: accent.withAlphaComponent(0.75), lineWidth: 1.4)
+        rounded(NSRect(x: rect.minX + 1, y: rect.minY + 1, width: rect.width - 2, height: 4), radius: 2, fill: accent.withAlphaComponent(0.85), stroke: nil, lineWidth: 0)
+        text(card.name.uppercased(), at: NSPoint(x: rect.minX + 18, y: rect.minY + 18), font: .systemFont(ofSize: 16, weight: .bold), color: .white)
+        text(card.plan.uppercased(), at: NSPoint(x: rect.minX + 18, y: rect.minY + 42), font: .monospacedSystemFont(ofSize: 9, weight: .medium), color: accent)
+        if card.isRecommended {
+            let badge = NSRect(x: rect.maxX - 112, y: rect.minY + 16, width: 92, height: 22)
+            rounded(badge, radius: 11, fill: NSColor.cyan.withAlphaComponent(0.15), stroke: NSColor.cyan.withAlphaComponent(0.7), lineWidth: 1)
+            text("ROUTED", at: NSPoint(x: badge.minX + 22, y: badge.minY + 6), font: .monospacedSystemFont(ofSize: 8, weight: .bold), color: .cyan)
+        }
+        let metricY = rect.minY + 78
+        let metricWidth = (rect.width - 54) / 2
+        drawCompactMetric(label: card.shortLabel, remaining: card.shortRemaining, reset: card.shortReset, at: NSPoint(x: rect.minX + 18, y: metricY), width: metricWidth, accent: .cyan)
+        drawCompactMetric(label: card.longLabel, remaining: card.longRemaining, reset: card.longReset, at: NSPoint(x: rect.minX + 36 + metricWidth, y: metricY), width: metricWidth, accent: .magenta)
+        text(card.syncText, at: NSPoint(x: rect.minX + 18, y: rect.maxY - 22), font: .monospacedSystemFont(ofSize: 8, weight: .regular), color: NSColor.white.withAlphaComponent(0.42))
+    }
+
+    private func drawCompactMetric(label: String, remaining: Int?, reset: String, at origin: NSPoint, width: CGFloat, accent: NSColor) {
+        text(label.uppercased(), at: origin, font: .monospacedSystemFont(ofSize: 8, weight: .bold), color: NSColor.white.withAlphaComponent(0.62))
+        text(remaining.map { "\($0)%" } ?? "—", at: NSPoint(x: origin.x, y: origin.y + 17), font: .monospacedSystemFont(ofSize: 25, weight: .bold), color: accent)
+        let track = NSRect(x: origin.x, y: origin.y + 50, width: width, height: 6)
+        rounded(track, radius: 3, fill: NSColor.white.withAlphaComponent(0.11), stroke: nil, lineWidth: 0)
+        if let remaining {
+            rounded(NSRect(x: track.minX, y: track.minY, width: max(3, track.width * CGFloat(remaining) / 100), height: track.height), radius: 3, fill: accent, stroke: nil, lineWidth: 0)
+        }
+        let resetText = reset.replacingOccurrences(of: "RESET  ", with: "")
+        text(resetText, at: NSPoint(x: origin.x, y: origin.y + 66), font: .monospacedSystemFont(ofSize: 8, weight: .regular), color: NSColor.white.withAlphaComponent(0.52))
     }
 
     private func drawMetric(label: String, remaining: Int?, reset: String, at origin: NSPoint, width: CGFloat, accent: NSColor) {

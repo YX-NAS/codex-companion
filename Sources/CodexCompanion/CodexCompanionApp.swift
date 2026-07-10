@@ -6,7 +6,7 @@ import Foundation
 enum CodexCompanionMain {
     static func main() {
         let app = NSApplication.shared
-        app.setActivationPolicy(.regular)
+        app.setActivationPolicy(.accessory)
         let delegate = MenuBarController()
         app.delegate = delegate
         app.run()
@@ -22,7 +22,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private let client = AppServerClient()
     private var timer: Timer?
     private var lastError: String?
-    private var dashboardWindow: NSWindow?
+    private let popover = NSPopover()
     private var dashboardView: CyberDashboardView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -35,17 +35,17 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             config = CompanionConfig()
         }
         statusItem.button?.toolTip = "Codex Companion"
-        createDashboard()
+        configureStatusPopover()
         rebuildMenu()
         refreshAll()
-        showDashboard()
+        togglePopover()
         timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.refreshIntervalSeconds), repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshAll() }
         }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showDashboard()
+        togglePopover()
         return true
     }
 
@@ -72,54 +72,23 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     }
 
     private func rebuildMenu() {
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Codex Companion", action: nil, keyEquivalent: "")
-        menu.addItem(.separator())
         let now = Date()
-        for account in config.accounts where account.isEnabled {
-            menu.addItem(withTitle: account.displayName, action: nil, keyEquivalent: "")
-            guard let snapshot = state.snapshots[account.id], snapshot.isFresh(at: now, staleAfterSeconds: config.staleAfterSeconds) else {
-                menu.addItem(withTitle: "  暂无最新数据", action: nil, keyEquivalent: "")
-                continue
-            }
-            add(window: snapshot.primary, fallbackLabel: "短周期", to: menu, now: now)
-            add(window: snapshot.secondary, fallbackLabel: "长周期", to: menu, now: now)
-            menu.addItem(withTitle: "  同步于 \(relative(snapshot.capturedAt, now: now))", action: nil, keyEquivalent: "")
-        }
-        menu.addItem(.separator())
         let recommendation = Recommender.recommend(profiles: config.accounts, snapshots: state.snapshots, now: now, staleAfterSeconds: config.staleAfterSeconds)
-        menu.addItem(withTitle: recommendation.message, action: nil, keyEquivalent: "")
-        if let lastError { menu.addItem(withTitle: "同步提示：\(lastError)", action: nil, keyEquivalent: "") }
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "立即刷新", action: #selector(refreshAction), keyEquivalent: "r")
-        menu.addItem(withTitle: "打开状态面板", action: #selector(showDashboard), keyEquivalent: "o")
-        menu.addItem(withTitle: "打开配置文件", action: #selector(openConfig), keyEquivalent: ",")
-        menu.addItem(withTitle: "退出", action: #selector(quit), keyEquivalent: "q")
-        statusItem.menu = menu
-
         if let accountID = recommendation.accountID, let snapshot = state.snapshots[accountID], snapshot.isFresh(at: now, staleAfterSeconds: config.staleAfterSeconds), let primary = snapshot.primary {
-            statusItem.button?.title = "C \(primary.remainingPercent)%"
-        } else { statusItem.button?.title = "C ?" }
+            statusItem.button?.title = "◈ \(primary.remainingPercent)%"
+        } else { statusItem.button?.title = "◈ —" }
         updateDashboard(recommendation: recommendation, now: now)
     }
 
-    private func add(window: RateLimitWindow?, fallbackLabel: String, to menu: NSMenu, now: Date) {
-        guard let window else {
-            menu.addItem(withTitle: "  \(fallbackLabel)：不可用", action: nil, keyEquivalent: "")
-            return
+    @objc private func togglePopover() {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            refreshAll()
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
-        let label = window.windowDurationMins.map(windowLabel) ?? fallbackLabel
-        let reset = window.resetDate.map { " · \(countdown($0, now: now))" } ?? ""
-        menu.addItem(withTitle: "  \(label)：可用 \(window.remainingPercent)%\(reset)", action: nil, keyEquivalent: "")
     }
-
-    @objc private func refreshAction() { refreshAll() }
-    @objc private func showDashboard() {
-        dashboardWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-    @objc private func openConfig() { NSWorkspace.shared.open(storage.configFileURL()) }
-    @objc private func quit() { NSApp.terminate(nil) }
 
     private func windowLabel(_ minutes: Int) -> String {
         if minutes % 10_080 == 0 { return "周额度" }
@@ -137,21 +106,17 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         return seconds < 60 ? "刚刚" : "\(seconds / 60)分钟前"
     }
 
-    private func createDashboard() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 840, height: 510),
-            styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Codex Companion"
-        window.center()
-        window.minSize = NSSize(width: 680, height: 450)
-        let view = CyberDashboardView(frame: window.contentView?.bounds ?? .zero)
-        view.autoresizingMask = [.width, .height]
-        window.contentView = view
-        dashboardWindow = window
+    private func configureStatusPopover() {
+        popover.behavior = .transient
+        popover.contentSize = NSSize(width: 360, height: 430)
+        let controller = NSViewController()
+        let view = CyberDashboardView(frame: NSRect(x: 0, y: 0, width: 360, height: 430))
+        controller.view = view
+        popover.contentViewController = controller
         dashboardView = view
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(togglePopover)
+        statusItem.button?.sendAction(on: [.leftMouseUp])
     }
 
     private func updateDashboard(recommendation: Recommendation, now: Date) {
@@ -176,7 +141,11 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
                 isRecommended: recommendation.accountID == account.id
             ))
         }
-        dashboardView?.cards = cards
+        if let recommended = cards.first(where: { $0.isRecommended }) {
+            dashboardView?.cards = [recommended]
+        } else {
+            dashboardView?.cards = Array(cards.prefix(1))
+        }
         dashboardView?.recommendation = recommendation.message
         dashboardView?.diagnostic = lastError
     }

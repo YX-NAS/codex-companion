@@ -23,7 +23,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private var lastError: String?
     private var dashboardWindow: NSWindow?
-    private var dashboardText: NSTextView?
+    private var dashboardView: CyberDashboardView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -139,48 +139,45 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
 
     private func createDashboard() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 360),
+            contentRect: NSRect(x: 0, y: 0, width: 840, height: 510),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Codex Companion"
         window.center()
-        let scroll = NSScrollView(frame: window.contentView?.bounds ?? .zero)
-        scroll.hasVerticalScroller = true
-        scroll.autoresizingMask = [.width, .height]
-        let text = NSTextView(frame: scroll.bounds)
-        text.isEditable = false
-        text.isSelectable = true
-        text.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        text.textContainerInset = NSSize(width: 20, height: 20)
-        text.autoresizingMask = [.width]
-        scroll.documentView = text
-        window.contentView = scroll
+        window.minSize = NSSize(width: 680, height: 450)
+        let view = CyberDashboardView(frame: window.contentView?.bounds ?? .zero)
+        view.autoresizingMask = [.width, .height]
+        window.contentView = view
         dashboardWindow = window
-        dashboardText = text
+        dashboardView = view
     }
 
     private func updateDashboard(recommendation: Recommendation, now: Date) {
-        var lines = ["Codex Companion", "", "Codex 额度总览"]
+        var cards: [CyberDashboardCard] = []
         for account in config.accounts where account.isEnabled {
-            lines.append("")
-            lines.append(account.displayName)
             guard let snapshot = state.snapshots[account.id], snapshot.isFresh(at: now, staleAfterSeconds: config.staleAfterSeconds) else {
-                lines.append("  暂无最新数据，请点击“立即刷新”。")
+                cards.append(CyberDashboardCard(name: account.displayName, plan: "awaiting sync", shortLabel: "短周期", shortRemaining: nil, shortReset: "等待数据", longLabel: "长周期", longRemaining: nil, longReset: "等待数据", syncText: "NO FRESH SNAPSHOT", isRecommended: false))
                 continue
             }
-            if let primary = snapshot.primary {
-                lines.append("  \(primary.windowDurationMins.map(windowLabel) ?? "短周期")  可用 \(primary.remainingPercent)%  \(primary.resetDate.map { countdown($0, now: now) } ?? "")")
-            }
-            if let secondary = snapshot.secondary {
-                lines.append("  \(secondary.windowDurationMins.map(windowLabel) ?? "长周期")  可用 \(secondary.remainingPercent)%  \(secondary.resetDate.map { countdown($0, now: now) } ?? "")")
-            }
-            lines.append("  同步于 \(relative(snapshot.capturedAt, now: now))")
+            let primary = snapshot.primary
+            let secondary = snapshot.secondary
+            cards.append(CyberDashboardCard(
+                name: account.displayName,
+                plan: snapshot.planType ?? "Codex profile",
+                shortLabel: primary?.windowDurationMins.map(windowLabel) ?? "短周期",
+                shortRemaining: primary?.remainingPercent,
+                shortReset: primary?.resetDate.map { "RESET  \(countdown($0, now: now))" } ?? "RESET  —",
+                longLabel: secondary?.windowDurationMins.map(windowLabel) ?? "长周期",
+                longRemaining: secondary?.remainingPercent,
+                longReset: secondary?.resetDate.map { "RESET  \(countdown($0, now: now))" } ?? "RESET  —",
+                syncText: "SYNC  \(relative(snapshot.capturedAt, now: now))",
+                isRecommended: recommendation.accountID == account.id
+            ))
         }
-        lines.append("")
-        lines.append(recommendation.message)
-        if let lastError { lines.append(""); lines.append("同步提示：\(lastError)") }
-        dashboardText?.string = lines.joined(separator: "\n")
+        dashboardView?.cards = cards
+        dashboardView?.recommendation = recommendation.message
+        dashboardView?.diagnostic = lastError
     }
 }

@@ -61,7 +61,9 @@ cd codex-companion
 }
 ```
 
-每个 `codexHome` 必须是你自己已通过 Codex 登录过的目录，并包含该 Profile 的认证配置。应用不会创建、复制或修改此目录。保存配置后重启应用，或在菜单栏选择退出后重新打开。
+每个 `codexHome` 必须是你自己已通过 Codex 登录过的目录，并包含该 Profile 的认证配置。应用不会创建、复制或修改此目录。
+
+在状态栏浮层底部点击 **刷新额度** 会重新读取所有账号；点击 **账号设置** 可直接打开上述配置文件。保存配置后再点击 **刷新额度**，无需重启应用。
 
 ## 工作方式
 
@@ -91,6 +93,7 @@ open "dist/CodexCompanion.app"
 - [开发计划](docs/CODEX_COMPANION_DEVELOPMENT_PLAN.md)
 - [开源项目调研与审核](docs/RESEARCH_AND_REVIEW.md)
 - [测试计划](docs/TEST_PLAN.md)
+- [使用手册](docs/USER_GUIDE.md)
 - [发布说明](docs/RELEASE.md)
 
 ## 已知限制

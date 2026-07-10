@@ -90,6 +90,17 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func refreshAction() {
+        if let updatedConfig = try? storage.loadConfig() {
+            config = updatedConfig
+        }
+        refreshAll()
+    }
+
+    @objc private func openConfig() {
+        NSWorkspace.shared.open(storage.configFileURL())
+    }
+
     private func windowLabel(_ minutes: Int) -> String {
         if minutes % 10_080 == 0 { return "周额度" }
         if minutes % 60 == 0 { return "\(minutes / 60)小时额度" }
@@ -108,10 +119,22 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
 
     private func configureStatusPopover() {
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 360, height: 430)
+        popover.contentSize = NSSize(width: 360, height: 474)
         let controller = NSViewController()
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 474))
         let view = CyberDashboardView(frame: NSRect(x: 0, y: 0, width: 360, height: 430))
-        controller.view = view
+        root.addSubview(view)
+        let refresh = NSButton(title: "↻  刷新额度", target: self, action: #selector(refreshAction))
+        refresh.frame = NSRect(x: 22, y: 438, width: 145, height: 26)
+        refresh.bezelStyle = .rounded
+        refresh.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        let settings = NSButton(title: "⚙  账号设置", target: self, action: #selector(openConfig))
+        settings.frame = NSRect(x: 193, y: 438, width: 145, height: 26)
+        settings.bezelStyle = .rounded
+        settings.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        root.addSubview(refresh)
+        root.addSubview(settings)
+        controller.view = root
         popover.contentViewController = controller
         dashboardView = view
         statusItem.button?.target = self

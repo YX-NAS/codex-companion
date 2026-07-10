@@ -6,7 +6,7 @@ import Foundation
 enum CodexCompanionMain {
     static func main() {
         let app = NSApplication.shared
-        app.setActivationPolicy(.accessory)
+        app.setActivationPolicy(.regular)
         let delegate = MenuBarController()
         app.delegate = delegate
         app.run()

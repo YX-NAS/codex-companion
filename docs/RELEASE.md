@@ -16,6 +16,11 @@
 - 增加菜单栏“打开状态面板”入口；
 - 本机安装脚本更新应用前会先退出旧进程，避免旧应用残留。
 
+## v0.1.2
+
+- 改为常规 macOS 应用：Dock 中显示图标，窗口不会再作为纯菜单栏应用被隐藏；
+- 启动后直接在当前桌面显示状态面板。
+
 ## 安装包
 
 从 GitHub Release 下载 `CodexCompanion-v0.1.0-macos-arm64.zip`，解压后将 `Codex Companion.app` 拖入 Applications。由于 v0.1.0 使用临时签名，macOS 若提示来源不明，请在系统设置中明确允许本应用运行。
